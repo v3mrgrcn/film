@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Emre Film Skoru — IMDb Linkli Otomatik Model</title>
+  <title>Emre Film Skoru — Sadece IMDb Linkiyle Otomatik Karar</title>
   <style>
     :root {
       --bg:#0d1017; --panel:#161a24; --panel2:#1f2633; --text:#edf2fb; --muted:#a9b4c7; --line:#30384a;
@@ -49,6 +49,13 @@
     .why { margin-top:14px; padding:13px; background:#111722; border:1px solid #30384a; border-radius:16px; color:#d7deeb; line-height:1.5; font-size:13.5px; }
     .posterline { display:grid; grid-template-columns:96px 1fr; gap:12px; margin-top:14px; align-items:start; } .posterline img { width:96px; border-radius:12px; border:1px solid #394459; background:#0d1017; }
     .pill { display:inline-flex; align-items:center; border-radius:999px; padding:6px 10px; background:#252c3b; border:1px solid #3b465a; color:#dfe6f2; font-size:12px; margin:4px 5px 0 0; }
+    .readonly-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:10px; }
+    .readonly-card { background:#111722; border:1px solid #30384a; border-radius:14px; padding:12px; min-height:68px; }
+    .readonly-card b { display:block; color:#cbd4e5; font-size:12px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+    .readonly-card span, .readonly-card div { color:#edf2fb; line-height:1.45; }
+    .readonly-text { background:#111722; border:1px solid #30384a; border-radius:14px; padding:12px; color:#dbe4f1; line-height:1.55; min-height:68px; white-space:pre-wrap; }
+    .hidden-fields { display:none !important; }
+    .final-text { min-height:210px; margin-top:10px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12.5px; line-height:1.5; }
     details { margin-top:14px; } summary { cursor:pointer; color:#cfd8e8; font-weight:800; } code { color:#c9ddff; }
     @media (max-width: 920px) { main { grid-template-columns:1fr; } .result { position:static; } .topgrid { grid-template-columns:repeat(2,1fr); } }
     @media (max-width: 700px) { .grid4 { grid-template-columns:1fr 1fr; } }
@@ -58,8 +65,8 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>Emre Film Skoru — Film İzleme Karar Aracı</h1>
-      <p class="lead">IMDb linkini yapıştır, araç IMDb ID üzerinden film bilgilerini çeksin ve Emre'nin 827 yapımlık geçmişine göre “uygun / riskli / uygun değil” kararı versin. API anahtarı sadece senin tarayıcında kullanılır; bu HTML dosyası internetsiz açılır ama otomatik veri çekmek için bağlantı gerekir.</p>
+      <h1>Emre Film Skoru — IMDb Film Seçici</h1>
+      <p class="lead">IMDb linkini yapıştır; araç IMDb ID üzerinden film bilgilerini, türleri ve plot sinyallerini otomatik çeksin. Artık tür/tema seçimi yok: sonuç yalnızca otomatik gelen verilere göre hesaplanır ve metin olarak gösterilir. API anahtarı tarayıcıda kullanılır; veri çekmek için internet bağlantısı gerekir.</p>
       <div class="topgrid">
         <div class="stat"><b>827</b><span>Eğitim kaydı</span></div>
         <div class="stat"><b>822</b><span>Puanlı kayıt</span></div>
@@ -78,7 +85,7 @@
             <div>
               <label for="keyMode">API key seçimi</label>
               <select id="keyMode">
-                <option value="default" selected>Varsayılan Key:       f86c9f56</option>
+                <option value="default" selected>Varsayılan key — f86c9f56</option>
                 <option value="custom">Farklı key gir</option>
                 <option value="saved">Tarayıcıda kayıtlı key</option>
               </select>
@@ -89,7 +96,7 @@
             </div>
             <div>
               <label for="plotMode">Konu uzunluğu</label>
-              <select id="plotMode"><option value="short">Uzun plot</option><option value="full">Kısa plot</option></select>
+              <select id="plotMode"><option value="short">Kısa plot</option><option value="full">Uzun plot</option></select>
             </div>
             <div>
               <label for="saveKey">Farklı key girilirse</label>
@@ -99,36 +106,44 @@
           <div class="hint">OMDb ücretsiz API anahtarıyla çalışır. Tarayıcıdan IMDb sayfasını kazımak yerine IMDb ID → OMDb sorgusu kullanılır. Bu daha temiz ve kararlı yöntemdir.</div>
           <div class="actions">
             <button id="fetchBtn">IMDb linkinden bilgileri çek</button>
-            <button class="secondary" id="themeBtn">Plot’tan tema öner</button>
             <button class="ghost" id="clearBtn">Formu temizle</button>
           </div>
           <div id="status" class="status"></div>
         </section>
 
         <section>
-          <h2 class="section-title">2) Film bilgileri</h2>
-          <div class="grid2">
-            <div><label for="title">Başlık</label><input id="title" placeholder="Film adı"></div>
-            <div><label for="imdbId">IMDb ID</label><input id="imdbId" placeholder="tt0133093"></div>
+          <h2 class="section-title">2) Otomatik gelen bilgiler</h2>
+          <div id="emptyInfo" class="hint">Henüz film çekilmedi. IMDb linkini girip “Bilgileri çek” dediğinde başlık, tür, yönetmen, IMDb puanı, süre, plot ve otomatik tema sinyalleri burada metin olarak görünecek.</div>
+          <div id="fetchedInfo" style="display:none">
+            <div class="readonly-grid">
+              <div class="readonly-card"><b>Başlık</b><span id="infoTitle">—</span></div>
+              <div class="readonly-card"><b>Yıl / Süre</b><span id="infoYearRuntime">—</span></div>
+              <div class="readonly-card"><b>IMDb</b><span id="infoRatingVotes">—</span></div>
+              <div class="readonly-card"><b>Yönetmen</b><span id="infoDirector">—</span></div>
+              <div class="readonly-card"><b>Yapım tipi</b><span id="infoType">—</span></div>
+              <div class="readonly-card"><b>IMDb ID</b><span id="infoImdbId">—</span></div>
+            </div>
+            <label>Otomatik türler</label>
+            <div id="genreText" class="readonly-text">—</div>
+            <label>Otomatik tema / anlatı sinyalleri</label>
+            <div id="themeText" class="readonly-text">—</div>
+            <label>Konu / plot</label>
+            <div id="plotDisplay" class="readonly-text">—</div>
           </div>
-          <div class="grid3">
-            <div><label for="year">Yıl</label><input id="year" type="number" placeholder="1999"></div>
-            <div><label for="runtime">Süre / dk</label><input id="runtime" type="number" placeholder="136"></div>
-            <div><label for="type">Yapım tipi</label><select id="type"><option>Movie</option><option>TV Series</option><option>TV Mini Series</option><option>Short</option></select></div>
+          <div class="hidden-fields" aria-hidden="true">
+            <input id="title">
+            <input id="imdbId">
+            <input id="year" type="number">
+            <input id="runtime" type="number">
+            <select id="type"><option>Movie</option><option>TV Series</option><option>TV Mini Series</option><option>Short</option></select>
+            <input id="imdbRating" type="number" min="0" max="10" step="0.1">
+            <input id="imdbVotes" type="number" min="0" step="1">
+            <select id="novelty"><option value="0">Güvenli seçim</option><option value="0.2">Yakın keşif</option><option value="0.4">Radikal keşif</option></select>
+            <input id="directors">
+            <div id="genreChips"></div>
+            <div id="themeChips"></div>
+            <textarea id="plot"></textarea>
           </div>
-          <div class="grid3">
-            <div><label for="imdbRating">IMDb puanı</label><input id="imdbRating" type="number" min="0" max="10" step="0.1" placeholder="8.7"></div>
-            <div><label for="imdbVotes">IMDb oy sayısı</label><input id="imdbVotes" type="number" min="0" step="1" placeholder="2100000"></div>
-            <div><label for="novelty">Keşif modu</label><select id="novelty"><option value="0">Güvenli seçim</option><option value="0.2">Yakın keşif</option><option value="0.4">Radikal keşif</option></select></div>
-          </div>
-          <label for="directors">Yönetmen(ler)</label>
-          <input id="directors" placeholder="Christopher Nolan, Denis Villeneuve">
-          <label>Türler</label>
-          <div id="genreChips" class="chips"></div>
-          <label>Temalar / anlatı sinyalleri</label>
-          <div id="themeChips" class="chips"></div>
-          <label for="plot">Konu / plot</label>
-          <textarea id="plot" placeholder="OMDb’den çekilirse buraya gelir. İstersen kendin de yazabilirsin; tema önerici bunu kullanır."></textarea>
         </section>
       </div>
 
@@ -137,7 +152,7 @@
           <div class="gauge" id="gauge"><div class="inner"><b id="score">--</b><span>EFS</span></div></div>
           <div>
             <h2 id="decision" class="decision mid">Bilgi bekleniyor</h2>
-            <div id="pred" class="pred">IMDb linkini çek veya alanları manuel doldur. Sonuç otomatik hesaplanır.</div>
+            <div id="pred" class="pred">IMDb linkini girip bilgileri çek. Sonuç otomatik hesaplanır.</div>
             <div id="watchedWarn" class="status warn" style="display:none"></div>
           </div>
         </div>
@@ -156,6 +171,8 @@
           <tbody id="breakdown"></tbody>
         </table>
         <div id="why" class="why">Henüz hesaplama yapılmadı.</div>
+        <label for="finalText">Metin sonucu</label>
+        <textarea id="finalText" class="final-text" readonly>IMDb linki girip bilgileri çektiğinde karar metni burada oluşacak.</textarea>
 
         <details>
           <summary>Karar eşikleri</summary>
@@ -163,7 +180,7 @@
         </details>
         <details>
           <summary>Model notu</summary>
-          <p class="small">Bu araç Bayesian IMDb kalite skoru + senin IMDb’ye göre kişisel sapman + tür, tür çifti, yönetmen, dönem, süre ve tema katsayılarını kullanır. Plot analizi kural tabanlıdır; nihai karar için temaları elle düzeltmen daha iyi sonuç verir.</p>
+          <p class="small">Bu araç Bayesian IMDb kalite skoru + senin IMDb’ye göre kişisel sapman + otomatik gelen tür, tür çifti, yönetmen, dönem, süre ve plot-tema katsayılarını kullanır. Tema çıkarımı kural tabanlıdır; kullanıcı tarafından elle düzeltilmez.</p>
         </details>
       </aside>
     </main>
@@ -192,6 +209,65 @@
     function getChecked(name) { return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(x=>x.value); }
     function setChecked(name, values) { const set = new Set(values.map(v=>String(v).trim())); document.querySelectorAll(`input[name="${name}"]`).forEach(x => x.checked = set.has(x.value)); }
 
+
+    function pillList(values) {
+      return values && values.length ? values.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join('') : '<span class="small">—</span>';
+    }
+
+    function updateInfoPanel() {
+      if (!$('fetchedInfo')) return;
+      const hasData = Boolean(($('title')?.value || '').trim() || ($('imdbId')?.value || '').trim());
+      $('emptyInfo').style.display = hasData ? 'none' : 'block';
+      $('fetchedInfo').style.display = hasData ? 'block' : 'none';
+      if (!hasData) return;
+      const title = $('title').value || '—';
+      const year = $('year').value || '—';
+      const runtime = $('runtime').value ? `${$('runtime').value} dk` : '—';
+      const rating = $('imdbRating').value ? `${$('imdbRating').value}/10` : '—';
+      const votes = $('imdbVotes').value ? `${Number($('imdbVotes').value).toLocaleString('tr-TR')} oy` : 'oy yok';
+      $('infoTitle').textContent = title;
+      $('infoYearRuntime').textContent = `${year} · ${runtime}`;
+      $('infoRatingVotes').textContent = `${rating} · ${votes}`;
+      $('infoDirector').textContent = $('directors').value || '—';
+      $('infoType').textContent = $('type').value || '—';
+      $('infoImdbId').textContent = $('imdbId').value || '—';
+      $('genreText').innerHTML = pillList(getChecked('genre'));
+      $('themeText').innerHTML = pillList(getChecked('theme'));
+      $('plotDisplay').textContent = $('plot').value || '—';
+    }
+
+    function updateOutputText(label, pred, efs, rows, ctx) {
+      if (!$('finalText')) return;
+      const title = $('title').value || '—';
+      const imdbId = $('imdbId').value || '—';
+      const year = $('year').value || '—';
+      const runtime = $('runtime').value ? `${$('runtime').value} dk` : '—';
+      const rating = $('imdbRating').value ? `${$('imdbRating').value}/10` : '—';
+      const votes = $('imdbVotes').value ? `${Number($('imdbVotes').value).toLocaleString('tr-TR')} oy` : 'oy yok';
+      const genres = ctx.genres.length ? ctx.genres.join(', ') : '—';
+      const themes = ctx.themes.length ? ctx.themes.join(', ') : '—';
+      const positives = rows.filter(r=>r[2]>.05).sort((a,b)=>b[2]-a[2]).slice(0,3).map(r=>`${r[0]} (${r[2]>=0?'+':''}${fmt(r[2],2)})`);
+      const negatives = rows.filter(r=>r[2]<-.05).sort((a,b)=>a[2]-b[2]).slice(0,3).map(r=>`${r[0]} (${fmt(r[2],2)})`);
+      const lines = [
+        `Film: ${title} (${year})`,
+        `IMDb ID: ${imdbId}`,
+        `IMDb: ${rating} · ${votes}`,
+        `Süre / tip: ${runtime} · ${$('type').value || '—'}`,
+        `Yönetmen: ${$('directors').value || '—'}`,
+        `Türler: ${genres}`,
+        `Tema sinyalleri: ${themes}`,
+        '',
+        `Karar: ${label}`,
+        `EFS: ${Math.round(efs)} / 100`,
+        `Tahmini kişisel puan: ${fmt(pred,2)} / 10`,
+        positives.length ? `Yükselten sinyaller: ${positives.join(', ')}` : 'Yükselten sinyal: belirgin değil',
+        negatives.length ? `Düşüren sinyaller: ${negatives.join(', ')}` : 'Düşüren sinyal: belirgin değil',
+        '',
+        `Konu: ${$('plot').value || '—'}`
+      ];
+      $('finalText').value = lines.join('\n');
+    }
+
     function eraForYear(y) {
       if (!Number.isFinite(y)) return null;
       if (y <= 1969) return '1960 ve öncesi';
@@ -214,6 +290,19 @@
     function avg(xs) { const clean=xs.filter(Number.isFinite); return clean.length ? clean.reduce((a,b)=>a+b,0)/clean.length : 0; }
 
     function compute() {
+      const hasCoreData = Boolean(($('title')?.value || '').trim() || ($('imdbId')?.value || '').trim() || ($('imdbRating')?.value || '').trim());
+      if (!hasCoreData) {
+        $('score').textContent = '--';
+        $('gauge').style.setProperty('--p', 0);
+        $('decision').textContent = 'Bilgi bekleniyor';
+        $('decision').className = 'decision mid';
+        $('pred').innerHTML = 'IMDb linkini girip bilgileri çek. Sonuç otomatik hesaplanır.';
+        $('breakdown').innerHTML = '';
+        $('why').innerHTML = 'Henüz hesaplama yapılmadı.';
+        if ($('finalText')) $('finalText').value = 'IMDb linki girip bilgileri çektiğinde karar metni burada oluşacak.';
+        updateInfoPanel();
+        return;
+      }
       const imdbRating = parseNum($('imdbRating').value);
       const votes = parseNum($('imdbVotes').value);
       const year = parseNum($('year').value);
@@ -279,6 +368,7 @@
       if (ctx.genres.includes('Drama') && ctx.genres.includes('Fantasy')) why.push('Not: Drama + Fantasy kombinasyonu sende geçmişte güçlü pozitif sinyal vermişti.');
       if (ctx.genres.includes('Mystery') && ctx.genres.includes('Sci-Fi')) why.push('Not: Mystery + Sci-Fi kombinasyonu zihinsel oyun / gerçeklik kırılması damarına yakın olduğu için sende daha iyi çalışıyor.');
       $('why').innerHTML = why.join('<br>');
+      updateOutputText(label, pred, efs, rows, ctx);
     }
 
     function checkWatched() {
@@ -347,7 +437,7 @@
         if (!data || data.Response === 'False') throw new Error(data?.Error || 'OMDb kayıt bulamadı.');
         fillFromOmdb(data, id);
         if ($('keyMode').value !== 'default') { if ($('saveKey').value === 'yes') localStorage.setItem('emreEfsOmdbKey', key); else localStorage.removeItem('emreEfsOmdbKey'); }
-        setStatus(`Bilgiler çekildi: <b>${escapeHtml(data.Title || id)}</b>. Alanları kontrol edip gerekirse temaları elle düzelt.`, 'good');
+        setStatus(`Bilgiler çekildi: <b>${escapeHtml(data.Title || id)}</b>. Türler ve tema sinyalleri otomatik hesaplandı; manuel seçim yok.`, 'good');
         suggestThemes(false);
         compute();
       } catch(err) { setStatus(escapeHtml(err.message), 'bad'); }
@@ -374,12 +464,13 @@
       $('posterTitle').textContent = `${data.Title || ''}${data.Year ? ' ('+data.Year+')' : ''}`;
       $('posterMeta').textContent = [data.Genre, data.Director, data.Runtime].filter(x => x && x !== 'N/A').join(' · ');
       $('posterPlot').textContent = data.Plot && data.Plot !== 'N/A' ? data.Plot : '';
+      updateInfoPanel();
     }
 
     function suggestThemes(show=true) {
       const plot = norm($('plot').value + ' ' + $('title').value);
       const genres = new Set(getChecked('genre'));
-      const picks = new Set(getChecked('theme'));
+      const picks = new Set();
       const has = (words) => words.some(w => plot.includes(norm(w)));
       if (has(['time','loop','destiny','fate','future','past','timeline','cycle','paradox','zaman','kader','döngü'])) picks.add('Zaman / kader / döngü');
       if (has(['memory','identity','reality','dream','simulation','clone','mind','forget','hafıza','kimlik','gerçeklik','rüya','simülasyon'])) picks.add('Hafıza / kimlik / gerçeklik kırılması');
@@ -392,20 +483,20 @@
       if (genres.has('Biography') && genres.has('Drama')) picks.add('Prestij biyografi dramı');
       if ((genres.has('Horror') || genres.has('Thriller')) && has(['slasher','gore','killer','blood','serial killer','kan','katil'])) picks.add('Slasher / gore ağırlıklı korku');
       setChecked('theme', [...picks]);
-      if (show) setStatus('Tema önerileri eklendi. Bunlar basit anahtar kelime eşleşmeleridir; nihai sonuç için gerekirse elle düzelt.', 'good');
+      updateInfoPanel();
+      if (show) setStatus('Tema sinyalleri plot ve türlere göre otomatik yeniden hesaplandı.', 'good');
       compute();
     }
 
     function clearForm() {
       ['imdbUrl','imdbId','title','year','runtime','imdbRating','imdbVotes','directors','plot'].forEach(id => $(id).value='');
-      $('type').value='Movie'; $('novelty').value='0'; setChecked('genre', []); setChecked('theme', []); $('posterBox').style.display='none'; clearStatus(); compute();
+      $('type').value='Movie'; $('novelty').value='0'; setChecked('genre', []); setChecked('theme', []); $('posterBox').style.display='none'; clearStatus(); updateInfoPanel(); compute();
     }
 
     document.addEventListener('input', (e) => { if (e.target.closest('main')) compute(); });
     document.addEventListener('change', (e) => { if (e.target.closest('main')) compute(); });
     $('fetchBtn').addEventListener('click', fetchOmdb);
     $('keyMode').addEventListener('change', updateKeyMode);
-    $('themeBtn').addEventListener('click', () => suggestThemes(true));
     $('clearBtn').addEventListener('click', clearForm);
     renderChips();
     const savedKey = localStorage.getItem('emreEfsOmdbKey'); if (savedKey && savedKey !== DEFAULT_OMDB_KEY) { $('keyMode').value = 'saved'; $('saveKey').value = 'yes'; } else { $('keyMode').value = 'default'; } updateKeyMode();
